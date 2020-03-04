@@ -1,24 +1,20 @@
-const bcrypt = require('bcryptjs');
-
-const Users = require('../users/users-model.js');
+const jwt = require('jsonwebtoken');
+const secrets = require('../config/secrets');
 
 module.exports = (req, res, next) => {
-  const { username, password } = req.headers;
+  const token = req.headers.authorization;
 
-  if (username && password) {
-    Users.findBy({ username })
-      .first()
-      .then(user => {
-        if (user && bcrypt.compareSync(password, user.password)) {
-          next();
-        } else {
-          res.status(401).json({ message: 'Invalid Credentials' });
-        }
-      })
-      .catch(error => {
-        res.status(500).json({ message: 'Ran into an unexpected error' });
-      });
+  if (token) {
+    jwt.verify(token, secrets.jwtSecret, (err, decodedToken) => {
+      if (err) {
+        return res.status(401).json({ message: 'Unathorised. You have provided an invalid token.' });
+      } else {
+        console.log('decodedToken = ', decodedToken);
+        req.user = { username: decodedToken.username, roles: decodedToken.roles };
+        next();
+      }
+    })
   } else {
-    res.status(400).json({ message: 'No credentials provided' });
+    res.status(401).json({ message: 'Missing authorization token. Please provide a valid token.' });
   }
 };
